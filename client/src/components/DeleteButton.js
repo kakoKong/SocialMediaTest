@@ -4,27 +4,32 @@ import React, { useState } from 'react'
 import { Button, Confirm, Icon } from 'semantic-ui-react';
 import { FETCH_POSTS_QUERY } from '../util/graphql';
 
-function DeleteButton({postId, callback}) {
+function DeleteButton({postId, commentId, callback}) {
     //TODO update cache
     const [confirmOpen, setConfirmOpen] = useState(false);
 
-    const [deletePost] = useMutation(DELETE_POST_MUTATION, {
+    const mutation = commentId ? DELETE_COMMENT_MUTATION : DELETE_POST_MUTATION;
+
+    const [deleteMutation] = useMutation(mutation, {
         update(proxy){
             setConfirmOpen(false);
             // TODO remove post form cache
-            const data = proxy.readQuery({
-                query: FETCH_POSTS_QUERY
-            });
-            console.log(data);
-            data.getPosts = data.getPosts.filter(p => p.id !== postId);
-            proxy.writeQuery({
-                query: FETCH_POSTS_QUERY,
-                data
+            if(!commentId){
+                const data = proxy.readQuery({
+                    query: FETCH_POSTS_QUERY
+                });
+                console.log(data);
+                data.getPosts = data.getPosts.filter(p => p.id !== postId);
+                proxy.writeQuery({
+                    query: FETCH_POSTS_QUERY,
+                    data
                 })
+            }
             if(callback) callback();
         },
         variables: {
-            postId
+            postId,
+            commentId
         }
     })
 
@@ -36,7 +41,7 @@ function DeleteButton({postId, callback}) {
     <Confirm
         open={confirmOpen}
         onCancel={() => setConfirmOpen(false)}
-        onConfirm={deletePost}
+        onConfirm={deleteMutation}
     />
     </>
     )
@@ -47,6 +52,17 @@ const DELETE_POST_MUTATION = gql`
         deletePost(postId: $postId)
     }
 
+`
+const DELETE_COMMENT_MUTATION = gql`
+    mutation deleteComment($postId: ID!, $commentId: ID!){
+        deleteComment(postId: $postId, commentId: $commentId){
+            id
+            comments{
+                id username createdAt body
+            }
+            commentCount
+        }
+    }
 `
 
 export default DeleteButton;
